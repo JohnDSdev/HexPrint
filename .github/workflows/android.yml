@@ -20,7 +20,12 @@ jobs:
           java-version: '17'
       # GitHub's Ubuntu runner already provides the Android SDK; avoid the deprecated 'tools' package.
       - name: Install SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          MANAGER="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
+          test -n "$MANAGER"
+          yes | "$MANAGER" --licenses >/dev/null || true
+          "$MANAGER" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
