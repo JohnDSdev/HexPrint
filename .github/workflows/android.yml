@@ -18,14 +18,27 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      # GitHub's Ubuntu runner already provides the Android SDK; avoid the deprecated 'tools' package.
       - name: Install SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          MANAGER="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -1)"
+          test -n "$MANAGER"
+          yes | "$MANAGER" --licenses >/dev/null || true
+          "$MANAGER" "platforms;android-35" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
       - name: Unit tests and debug APK
         run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HexPrint-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+
       - name: Install and launch on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -38,10 +51,3 @@ jobs:
             adb shell am start -W -n dev.johnds.hexprint/.MainActivity
             sleep 3
             adb shell pidof dev.johnds.hexprint | grep -E '^[0-9]+$'
-      - name: Upload APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: HexPrint-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
